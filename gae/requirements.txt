@@ -1,0 +1,7 @@
+Flask
+requests
+grpcio
+gunicorn
+beautifulsoup4
+tweepy
+mojimoji
