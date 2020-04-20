@@ -1,7 +1,8 @@
+lxml
 Flask
-requests
-grpcio
-gunicorn
-beautifulsoup4
 tweepy
+grpcio
+requests
+gunicorn
 mojimoji
+beautifulsoup4
