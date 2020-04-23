@@ -8,16 +8,7 @@ from flask import Flask, request, Response
 
 app = Flask(__name__)
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
-LINE_NOTIFY_TOKEN = os.environ.get("LINE_NOTIFY_TOKEN")
 CLOUD_FUNCTIONS_URL = os.environ.get("CLOUD_FUNCTIONS_URL")
-
-
-def send_message(message):
-    url = "https://notify-api.line.me/api/notify"
-    payload = {"message": message}
-    headers = {"Authorization": "Bearer " + LINE_NOTIFY_TOKEN}
-    r = requests.post(url, data=payload, headers=headers)
-    return r.status_code
 
 
 def send_eew_url(body):
@@ -26,7 +17,6 @@ def send_eew_url(body):
     for i in entry:
         title = i.find("title").text
         if title == "震源・震度に関する情報":
-            send_message("地震！！！！！！")
             eew_url = i.find("link").get("href")
             payload = {"eew_url": eew_url}
             requests.get(CLOUD_FUNCTIONS_URL, params=payload)
