@@ -1,5 +1,5 @@
 lxml
 tweepy
-mojimoji
 requests
+xmltodict
 beautifulsoup4

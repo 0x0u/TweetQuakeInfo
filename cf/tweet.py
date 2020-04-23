@@ -1,8 +1,8 @@
 import os
 import re
 import tweepy
-import mojimoji
 import requests
+import xmltodict
 from io import BytesIO
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -50,57 +50,57 @@ def parse_xml(url):
     r.encoding = r.apparent_encoding
     soup = BeautifulSoup(r.text, "lxml")
 
-    # 取り消しの有無を確認
-    infotype = soup.find("infotype").text
-    if infotype == "取消":
-        return
+    data_dic = xmltodict.parse(r.text)
 
-    # 国内で発生した地震かどうかの確認
-    is_domestic = soup.find_all("title")
-    if is_domestic[1].text == "遠地地震に関する情報":
-        return
+    # 発表かどうか
+    info_type = data_dic["Report"]["Head"]["InfoType"]
+    if info_type != "発表":
+        exit()
+
+    # 国内発生かどうか
+    datum = data_dic["Report"]["Body"]["Earthquake"]["Hypocenter"]["Area"]["jmx_eb:Coordinate"].get("@datum")
+    if datum is None:
+        exit()
 
     # 発生時刻
-    original_time = datetime.strptime(soup.find("origintime").text, "%Y-%m-%dT%H:%M:00+09:00")
-    original_time_text = original_time.strftime("%Y年%-m月%-d日 %-H時%-M分ごろ")
+    origin_time = data_dic["Report"]["Body"]["Earthquake"]["OriginTime"]
+    origin_time_tmp = datetime.strptime(origin_time, "%Y-%m-%dT%H:%M:00+09:00")
+    origin_time_text = origin_time_tmp.strftime("%Y年%-m月%-d日 %-H時%-M分ごろ")
 
-    # 震源地 epicenter
-    epi_text = soup.find("hypocenter").find("name").text
+    # 震源地
+    epicenter_text = data_dic["Report"]["Body"]["Earthquake"]["Hypocenter"]["Area"]["Name"]
 
-    # 最大震度 Maximum seismic intensity とり得る値(1, 2, 3, 4, 5-, 5+, 6-, 6+, 7)
-    msi = soup.find("intensity").find("maxint").text
-    msi_text = msi.replace("-", "弱").replace("+", "強")
+    # 最大震度
+    maxint = data_dic["Report"]["Body"]["Intensity"]["Observation"]["MaxInt"]
+    maxint_text = maxint.replace("-", "弱").replace("+", "強")
 
-    # マグニチュード magnitude
-    mag = soup.find("jmx_eb:magnitude").get("description")
-    if mag == "不明":
-        mag_t = "不明"
-    elif mag == "M8を超える巨大地震":
-        mag_t = "8以上"
-    else:
-        mag_t = mojimoji.zen_to_han(mag).replace("M", "")
+    # マグニチュード
+    magnitude_text = data_dic["Report"]["Body"]["Earthquake"]["jmx_eb:Magnitude"]["#text"]
 
-    # 座標・深さ coordinate
-    coor = soup.find("jmx_eb:coordinate")
-    if coor.get("description") != "震源要素不明" and coor.get("datum") == "日本測地系":
-        coor = re.findall("[+-](\d*[.,]?\d*)", coor.text)
-        lat_text = "北緯" + coor[0] + "度"
-        lon_text = "東経" + coor[1] + "度"
-        depth_text = str(round(int(coor[2]) / 1000)) + "km"
-        if depth_text == "0km" or int(depth_text.replace("km", "")) <= 5:
-            depth_text = "ごく浅い"
-        elif depth_text == "700km":
-            depth_text = "700km以上"
-    else:
+    # 座標
+    hypocenter = data_dic["Report"]["Body"]["Earthquake"]["Hypocenter"]["Area"]
+    description = hypocenter["jmx_eb:Coordinate"]["@description"]
+    if description == "震源要素不明":
         lat_text = "不明"
         lon_text = "不明"
         depth_text = "不明"
+    else:
+        coor_tmp = hypocenter["jmx_eb:Coordinate"]["#text"]
+        coor = re.findall("[+-](\d*[.,]?\d*)", coor_tmp)
+        lat_text = "N" + coor[0]
+        lon_text = "E" + coor[1]
+        depth = int(coor[2]) / 1000
+        if depth <= 5:
+            depth_text = "ごく浅い"
+        elif depth >= 700:
+            depth_text = "700km以上"
+        else:
+            depth_text = str(depth) + "km"
 
-    tweet_text = "【地震情報】\n時刻: {}\n震源地: {}\n最大震度: {}\nマグニチュード: {}\n深さ: {}\n座標: {}/{}".format(original_time_text, epi_text, msi_text, mag_t, depth_text, lat_text, lon_text)
+    tweet_text = "【メンテナンス】\n発生時刻: {}\n震源地: {}\n最大震度: {}\nマグニチュード: M{}\n深さ: {}\n座標: {}/{}".format(origin_time_text, epicenter_text, maxint_text, magnitude_text, depth_text, lat_text, lon_text)
     tweet_img = get_eew_img()
     tweet_id = tweet(tweet_text=tweet_text, tweet_img=tweet_img)
 
-    # 震度毎に市区町村名をツイートする
     city_data_dic = {
         "si1": [],
         "si2": [],
@@ -139,6 +139,7 @@ def parse_xml(url):
     for i in city_data_dic:
         city_names = city_data_dic[i]
         if city_names:
+
             if i == "si1":
                 tweet_text = "《震度1》"
             elif i == "si2":
