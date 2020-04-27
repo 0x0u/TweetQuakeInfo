@@ -97,7 +97,7 @@ def parse_xml(url):
         else:
             depth_text = str(depth) + "km"
 
-    tweet_text = "【メンテナンス】\n発生時刻: {}\n震源地: {}\n最大震度: {}\nマグニチュード: M{}\n深さ: {}\n座標: {}/{}".format(origin_time_text, epicenter_text, maxint_text, magnitude_text, depth_text, lat_text, lon_text)
+    tweet_text = "【地震情報】\n発生時刻: {}\n震源地: {}\n最大震度: {}\nマグニチュード: M{}\n深さ: {}\n座標: {}/{}".format(origin_time_text, epicenter_text, maxint_text, magnitude_text, depth_text, lat_text, lon_text)
     tweet_img = get_eew_img()
     tweet_id = tweet(tweet_text=tweet_text, tweet_img=tweet_img)
 
